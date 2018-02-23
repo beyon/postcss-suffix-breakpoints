@@ -1,7 +1,10 @@
 // paste code into: http://astexplorer.net/#/np0DfVT78g/94 for interactive testing
-import * as postcss from 'postcss';
+// import * as postcss from 'postcss';
 
-export default postcss.plugin('postcss-suffix-breakpoints', (options = {}) => {
+var postcss = require('postcss');
+
+module.exports = postcss.plugin('postcss-suffix-breakpoints', function (opts) {
+    opts = opts || {};
     // Work with options here
     var breakpoints = [{suffix: '-ns', var: '--breakpoint-not-small'},
     {suffix: '-m', var: '--breakpoint-medium'},

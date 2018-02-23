@@ -10,7 +10,7 @@ function run(input, output, opts) {
         });
 }
 
-it('does something', () => {
+it('sample test to get tests up and running', () => {
     return run(
         // input:
         `
@@ -24,7 +24,7 @@ it('does something', () => {
 @media (--breakpoint-medium) {
 .flex-m { display: flex; } }
 @media (--breakpoint-large) {
-.flex-l { display: flex; } }        
+.flex-l { display: flex; } }
         `,
         // options:
         { });
