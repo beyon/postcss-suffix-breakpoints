@@ -31,7 +31,8 @@
   "eslintConfig": {
     "extends": "eslint-config-postcss/es5",
     "env": {
-      "jest": true
+      "jest": true,
+      "es6": true
     }
   }
 }

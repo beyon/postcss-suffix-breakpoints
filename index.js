@@ -1,4 +1,4 @@
-// paste code into: http://astexplorer.net/#/np0DfVT78g/94 for interactive testing
+// paste into: http://astexplorer.net/#/np0DfVT78g/94 for interactive testing
 // import * as postcss from 'postcss';
 
 var postcss = require('postcss');
@@ -6,55 +6,62 @@ var postcss = require('postcss');
 module.exports = postcss.plugin('postcss-suffix-breakpoints', function (opts) {
     opts = opts || {};
     // Work with options here
-    var breakpoints = [{suffix: '-ns', var: '--breakpoint-not-small'},
-    {suffix: '-m', var: '--breakpoint-medium'},
-    {suffix: '-l', var: '--breakpoint-large'}];
-    var breakpoint_rules = new Map();
-    //init breakpoint_rules to hold empty arrays for all suffixes
-    for(var bp = 0; bp < breakpoints.length; bp++) {
-        breakpoint_rules.set( breakpoints[bp].suffix, [] );
+    var breakpoints = [{ suffix: '-ns', var: '--breakpoint-not-small' },
+        { suffix: '-m', var: '--breakpoint-medium' },
+        { suffix: '-l', var: '--breakpoint-large' }
+    ];
+    var breakpointRules = new Map();
+    // init breakpoint_rules to hold empty arrays for all suffixes
+    for (var idxInit = 0; idxInit < breakpoints.length; idxInit++) {
+        breakpointRules.set( breakpoints[idxInit].suffix, [] );
     }
     return function (root, result) {
-        var class_rules = [];
+        var classRules = [];
         root.walkRules(rule => {
-            if( rule.selector.startsWith('.') ){
-				var is_breakpoint_rule = false;
-                for(var bp = 0; bp < breakpoints.length; bp++) {
+            if ( rule.selector.startsWith('.') ) {
+                var isBreakpointRule = false;
+                for ( var bp = 0; bp < breakpoints.length; bp++) {
                     var suffix = breakpoints[bp].suffix;
-                    if( rule.selector.endsWith( suffix ) ) {
-                        is_breakpoint_rule = true;
-                        
-                        //update/add rule to breakpoint rules for current suffix
-                        var suffix_rules = breakpoint_rules.get( suffix );
-                        suffix_rules.push(rule.clone());
-                        breakpoint_rules.set( suffix, suffix_rules );
-                        
-                        break;// stop iterating since there can only be one suffix per rule
+                    if ( rule.selector.endsWith( suffix ) ) {
+                        isBreakpointRule = true;
+
+                        // update/add rule to rules for current suffix
+                        var suffixRules = breakpointRules.get( suffix );
+                        suffixRules.push(rule.clone());
+                        breakpointRules.set( suffix, suffixRules );
+
+                        // stop iterating, can only be one suffix per rule
+                        break;
                     }
                 }
-                if( is_breakpoint_rule ) rule.remove();
-                else class_rules.push( rule.clone() );
+                if ( isBreakpointRule ) rule.remove();
+                else classRules.push( rule.clone() );
             }
         });
-        
-        for(var bp = 0; bp < breakpoints.length; bp++)  {
-            var media_class_rules = new Map();
+
+        for (var bp = 0; bp < breakpoints.length; bp++)  {
+            var mediaClassRules = new Map();
             var suffix = breakpoints[bp].suffix;
-            //copy class rules for all non suffixed rules and add suffix to selector for current breakpoint
-            for(var idx = 0; idx < class_rules.length; idx++) {
-                var class_name = class_rules[idx].selector;
-                var name_with_suffix = class_name + suffix;
-                media_class_rules.set( name_with_suffix, class_rules[idx].clone({selector: name_with_suffix }) );
+            // copy class rules for all non suffixed rules and add suffix to
+            // selector for current breakpoint
+            for (var idx = 0; idx < classRules.length; idx++) {
+                var className = classRules[idx].selector;
+                var nameWithSuffix = className + suffix;
+                mediaClassRules.set(
+                    nameWithSuffix,
+                    classRules[idx].clone({ selector: nameWithSuffix }) );
             }
             // override suffixed rules with manually added ones
-            var manual_suffix_rules = breakpoint_rules.get(suffix);
-            for( var r = 0; r < manual_suffix_rules.length; r++) {
-                media_class_rules.set( manual_suffix_rules[r].selector, manual_suffix_rules[r].clone() );
+            var manualSuffixRules = breakpointRules.get(suffix);
+            for ( var r = 0; r < manualSuffixRules.length; r++) {
+                mediaClassRules.set(
+                    manualSuffixRules[r].selector,
+                    manualSuffixRules[r].clone() );
             }
             root.append({
                 name: 'media',
                 params: '(' + breakpoints[bp].var + ')',
-                nodes: Array.from(media_class_rules.values())
+                nodes: Array.from(mediaClassRules.values())
             });
         }
     };
