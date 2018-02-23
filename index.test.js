@@ -10,10 +10,22 @@ function run(input, output, opts) {
         });
 }
 
-/* Write tests here
-
 it('does something', () => {
-    return run('a{ }', 'a{ }', { });
+    return run(
+        // input:
+        `
+.flex { display: flex; }
+        `,
+        // output:
+        `
+.flex { display: flex; }
+@media (--breakpoint-not-small) {
+.flex-ns { display: flex; } }
+@media (--breakpoint-medium) {
+.flex-m { display: flex; } }
+@media (--breakpoint-large) {
+.flex-l { display: flex; } }        
+        `,
+        // options:
+        { });
 });
-
-*/
