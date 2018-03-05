@@ -87,7 +87,7 @@ export default postcss.plugin(
                 }
                 root.append({
                     name: 'media',
-                    params: '(' + breakpoints[bp].atMediaExpr + ')',
+                    params: breakpoints[bp].atMediaExpr,
                     nodes: Array.from(mediaClassRules.values())
                 });
             }
