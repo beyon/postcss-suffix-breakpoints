@@ -21,11 +21,14 @@
     "postcss": "^6.0.16"
   },
   "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
     "eslint": "^4.15.0",
     "eslint-config-postcss": "^2.0.2",
     "jest": "^21.0.0"
   },
   "scripts": {
+    "build": "babel 'src/index.js' index.js",
     "test": "jest && eslint *.js"
   },
   "eslintConfig": {

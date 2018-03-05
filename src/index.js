@@ -3,6 +3,7 @@
 
 var postcss = require('postcss');
 
+// export default postcss.plugin('postcss-reverse-props', (options = {}) => {
 module.exports = postcss.plugin('postcss-suffix-breakpoints', function (opts) {
     opts = opts || {};
     // Work with options here
