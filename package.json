@@ -28,11 +28,14 @@
     "jest": "^21.0.0"
   },
   "scripts": {
-    "build": "babel 'src/index.js' index.js",
-    "test": "jest && eslint *.js"
+    "build": "babel ./src/index.js -o index.js",
+    "test": "jest && eslint --ext .js src/ tests/"
+  },
+  "babel": {
+    "presets": ["env"]
   },
   "eslintConfig": {
-    "extends": "eslint-config-postcss/es5",
+    "extends": "eslint-config-postcss",
     "env": {
       "jest": true,
       "es6": true
