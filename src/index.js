@@ -79,11 +79,6 @@ function processCSS(breakpoints, root) {
                 manualSuffixRules[r].clone()
             );
         }
-        root.append({
-            name: 'media',
-            params: breakpoints[bp].atMediaExpr,
-            nodes: Array.from(mediaClassRules.values())
-        });
         let atMediaChildNodes =
             Array.from(mediaClassRules.values())
                 .map( rule => {
