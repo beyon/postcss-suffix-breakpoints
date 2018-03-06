@@ -79,10 +79,19 @@ function processCSS(breakpoints, root) {
                 manualSuffixRules[r].clone()
             );
         }
+        const indent = '    ';
+        const newLine = '\n';
         let atMediaChildNodes =
             Array.from(mediaClassRules.values())
                 .map( rule => {
-                    rule.raws.before = '\n   ';
+                    let multiDecl = rule.nodes.length > 1;
+                    rule.raws.before = newLine + indent;
+                    if (multiDecl) {
+                        rule.nodes.map( child => {
+                            child.raws.before = newLine + indent + indent;
+                        });
+                        rule.raws.after = newLine + indent;
+                    }
                     return rule;
                 });
         let newMediaRule = postcss.atRule();
