@@ -71,6 +71,24 @@ p { text-color: pink; }
         `,
         tachyonsBreakpoints);
 });
+
+it('No valid breakpoints', () => {
+    let options = {
+        breakpoints: [
+            { suffix: 2, atMediaExpr: '--SomeVar' },
+            { suffix: '-m', atMediaExpr: '' }
+        ]
+    };
+    return testOptionWarnings(
+        3,
+        [
+            'no valid suffix for breakpoint with index: 0',
+            'no valid atMediaExpr for breakpoint with index: 1',
+            'Nothing to do! (No valid breakpoints supplied)'
+        ],
+        options);
+});
+
 it('Options atMediaExpr warning', () => {
     let options = {
         breakpoints: [

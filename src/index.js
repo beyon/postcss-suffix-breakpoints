@@ -16,7 +16,7 @@ function filterInvalidBreakpoints(breakpoints, result) {
                             bpIdx.toString());
             }
             if ('atMediaExpr' in breakpoint &&
-                typeof breakpoint.suffix === 'string' &&
+                typeof breakpoint.atMediaExpr === 'string' &&
                 breakpoint.atMediaExpr.length > 0) {
                 validAtMediaExpr = true;
             } else {
@@ -97,7 +97,7 @@ export default postcss.plugin(
             if (hasValidBreakpoints) {
                 processCSS(breakpoints, root);
             } else {
-                result.warn('Nothing to do! (No valid breakpoints supplied');
+                result.warn('Nothing to do! (No valid breakpoints supplied)');
             }
         };
     });
