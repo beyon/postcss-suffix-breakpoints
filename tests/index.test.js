@@ -22,14 +22,15 @@ function testOptionWarnings(warningCount, warnings, opts) {
         });
 }
 
-it('sample test to get tests up and running', () => {
-    let options = {
-        breakpoints: [
-            { suffix: '-ns', atMediaExpr: '--breakpoint-not-small' },
-            { suffix: '-m', atMediaExpr: '--breakpoint-medium' },
-            { suffix: '-l', atMediaExpr: '--breakpoint-large' }
-        ]
-    };
+const tachyonsBreakpoints = {
+    breakpoints: [
+        { suffix: '-ns', atMediaExpr: '(--breakpoint-not-small)' },
+        { suffix: '-m', atMediaExpr: '(--breakpoint-medium)' },
+        { suffix: '-l', atMediaExpr: '(--breakpoint-large)' }
+    ]
+};
+
+it('Basic breakpoint generation', () => {
     return run(
         // input:
         `
@@ -45,10 +46,32 @@ it('sample test to get tests up and running', () => {
 @media (--breakpoint-large) {
 .flex-l { display: flex; } }
         `,
-        options);
+        tachyonsBreakpoints);
 });
 
-it('Options suffix warning', () => {
+it('Basic breakpoint generation with non-class rules', () => {
+    return run(
+        // input:
+        `
+body { text-color: black; }
+.flex { display: flex; }
+p { text-color: pink; } /* cute paragraphs :D */
+        `,
+        // output:
+        `
+body { text-color: black; }
+.flex { display: flex; }
+p { text-color: pink; } /* cute paragraphs :D */
+@media (--breakpoint-not-small) {
+.flex-ns { display: flex; } }
+@media (--breakpoint-medium) {
+.flex-m { display: flex; } }
+@media (--breakpoint-large) {
+.flex-l { display: flex; } }
+        `,
+        tachyonsBreakpoints);
+});
+it('Options atMediaExpr warning', () => {
     let options = {
         breakpoints: [
             { suffix: '-ns', atMediaExpr: '--SomeVar' },
