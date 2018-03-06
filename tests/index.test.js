@@ -55,13 +55,13 @@ it('Basic breakpoint generation with non-class rules', () => {
         `
 body { text-color: black; }
 .flex { display: flex; }
-p { text-color: pink; } /* cute paragraphs :D */
+p { text-color: pink; }
         `,
         // output:
         `
 body { text-color: black; }
 .flex { display: flex; }
-p { text-color: pink; } /* cute paragraphs :D */
+p { text-color: pink; }
 @media (--breakpoint-not-small) {
 .flex-ns { display: flex; } }
 @media (--breakpoint-medium) {
