@@ -84,6 +84,19 @@ function processCSS(breakpoints, root) {
             params: breakpoints[bp].atMediaExpr,
             nodes: Array.from(mediaClassRules.values())
         });
+        let atMediaChildNodes =
+            Array.from(mediaClassRules.values())
+                .map( rule => {
+                    rule.raws.before = '\n   ';
+                    return rule;
+                });
+        let newMediaRule = postcss.atRule();
+        newMediaRule.name = 'media';
+        newMediaRule.params = breakpoints[bp].atMediaExpr;
+        newMediaRule.nodes = atMediaChildNodes;
+        root.append(newMediaRule);
+        newMediaRule.raws.before = '\n\n';
+        newMediaRule.raws.after = '\n';
     }
 }
 
