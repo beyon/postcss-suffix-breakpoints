@@ -37,6 +37,8 @@ function processCSS(breakpoints, root) {
         breakpointRules.set(breakpoints[idx].suffix, []);
     }
     let classRules = [];
+    // Copy class rules into either class rules to prefix (classRules)
+    // collection and move already suffixed class rules into suffixRules
     root.walkRules(rule => {
         if (rule.selector.startsWith('.')) {
             let isBreakpointRule = false;
