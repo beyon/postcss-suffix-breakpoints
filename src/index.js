@@ -1,6 +1,28 @@
 // paste into: http://astexplorer.net/#/np0DfVT78g/94 for interactive testing
 import * as postcss from 'postcss';
 
+/**
+ * Split class name selector into class name, pseudo separator and
+ * pseudo class
+ * @param {string} ruleSelector class name selector string
+ * @returns {{ className: string, pSeparator: string, pseudo: string}}
+ *  Chopped result, pSeparator and pseudo will be undefined for input
+ *  without any pseudo selector
+ */
+function chopPseudo(ruleSelector) {
+    let className = ruleSelector;
+    let pseudo = undefined;
+    let pSeparator = undefined;
+    const match = ruleSelector.match(/::?/);
+    if (match) {
+        pSeparator = match[0];
+        let matchIndex = ruleSelector.indexOf(pSeparator);
+        className = ruleSelector.substring(0, matchIndex);
+        pseudo = ruleSelector.substring(matchIndex + pSeparator.length);
+    }
+    return { className, pSeparator, pseudo };
+}
+
 function filterInvalidBreakpoints(breakpoints, result) {
     let hasValidBreakpoints = false;
     if (Array.isArray(breakpoints) && breakpoints.length > 0) {
@@ -29,7 +51,11 @@ function filterInvalidBreakpoints(breakpoints, result) {
     }
     return { hasValidBreakpoints, breakpoints };
 }
-
+/**
+ * Main CSS AST processing function
+ * @param {any} breakpoints - suffix and @media expression from plugin options
+ * @param {postcss.Root} root - postcss AST root node
+ */
 function processCSS(breakpoints, root) {
     let breakpointRules = new Map();
     // init breakpoint_rules to hold empty arrays for all suffixes
@@ -37,14 +63,19 @@ function processCSS(breakpoints, root) {
         breakpointRules.set(breakpoints[idx].suffix, []);
     }
     let classRules = [];
+
     // Copy class rules into either class rules to prefix (classRules)
     // collection and move already suffixed class rules into suffixRules
     root.walkRules(rule => {
+        // Only work on individual class selectors
+        // Multiple selectors doesn't make much sense for atomic css?
         if (rule.selector.startsWith('.')) {
             let isSuffixedRule = false;
             for (let bp = 0; bp < breakpoints.length; bp++) {
                 let suffix = breakpoints[bp].suffix;
-                if (rule.selector.endsWith(suffix)) {
+                // get classname and ignore pseudo part
+                const { className } = chopPseudo(rule.selector);
+                if (className.endsWith(suffix)) {
                     isSuffixedRule = true;
                     // update/add rule to rules for current suffix
                     let suffixRules = breakpointRules.get(suffix);
@@ -66,11 +97,13 @@ function processCSS(breakpoints, root) {
         // copy class rules for all non suffixed rules and add suffix to
         // selector for current breakpoint
         for (let idx = 0; idx < classRules.length; idx++) {
-            const className = classRules[idx].selector;
+            const selector = classRules[idx].selector;
+            const { className } = chopPseudo(selector);
             const nameWithSuffix = className + suffix;
+            const updatedSelector = selector.replace(className, nameWithSuffix);
             mediaClassRules.set(
-                nameWithSuffix,
-                classRules[idx].clone({ selector: nameWithSuffix })
+                updatedSelector,
+                classRules[idx].clone({ selector: updatedSelector })
             );
         }
         // override suffixed rules with manually added ones
