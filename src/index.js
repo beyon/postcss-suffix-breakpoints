@@ -41,11 +41,11 @@ function processCSS(breakpoints, root) {
     // collection and move already suffixed class rules into suffixRules
     root.walkRules(rule => {
         if (rule.selector.startsWith('.')) {
-            let isBreakpointRule = false;
+            let isSuffixedRule = false;
             for (let bp = 0; bp < breakpoints.length; bp++) {
                 let suffix = breakpoints[bp].suffix;
                 if (rule.selector.endsWith(suffix)) {
-                    isBreakpointRule = true;
+                    isSuffixedRule = true;
                     // update/add rule to rules for current suffix
                     let suffixRules = breakpointRules.get(suffix);
                     suffixRules.push(rule.clone());
@@ -54,7 +54,7 @@ function processCSS(breakpoints, root) {
                     break;
                 }
             }
-            if (isBreakpointRule)
+            if (isSuffixedRule)
                 rule.remove();
             else
                 classRules.push(rule.clone());
