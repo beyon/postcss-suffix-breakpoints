@@ -72,11 +72,11 @@ function processCSS(breakpoints, root) {
         if (rule.selector.startsWith('.')) {
             // Check if previous node is '!no-suffix' comment
             const prevNode = rule.prev();
-            const hasNoSuffixComment =
+            const hasIgnoreComment =
                 prevNode &&
                 prevNode.type === 'comment' &&
                 prevNode.text === '!no-suffix';
-            const notIgnored = !hasNoSuffixComment;
+            const notIgnored = !hasIgnoreComment;
             if (notIgnored) {
                 let isSuffixedRule = false;
                 for (let bp = 0; bp < breakpoints.length; bp++) {
