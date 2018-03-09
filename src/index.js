@@ -63,6 +63,7 @@ function processCSS(breakpoints, root) {
         breakpointRules.set(breakpoints[idx].suffix, []);
     }
     let classRules = [];
+    let movedComments = new Map();
 
     // Copy class rules into either class rules to prefix (classRules)
     // collection and move already suffixed class rules into suffixRules
@@ -93,10 +94,23 @@ function processCSS(breakpoints, root) {
                         break;
                     }
                 }
-                if (isSuffixedRule)
+                if (isSuffixedRule) {
+                    const nextNode = rule.next();
+                    const isSameLineComment =
+                        nextNode &&
+                        nextNode.type === 'comment' &&
+                        nextNode.source.start.line === rule.source.end.line;
+                    if (isSameLineComment) {
+                        movedComments.set(
+                            rule.source.start.line,
+                            nextNode.clone()
+                        );
+                        nextNode.remove();
+                    }
                     rule.remove();
-                else
+                } else {
                     classRules.push(rule.clone());
+                }
             }
         }
     });
