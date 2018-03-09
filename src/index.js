@@ -68,27 +68,36 @@ function processCSS(breakpoints, root) {
     // collection and move already suffixed class rules into suffixRules
     root.walkRules(rule => {
         // Only work on individual class selectors
-        // Multiple selectors doesn't make much sense for atomic css?
+        // (for now, see issue #1)
         if (rule.selector.startsWith('.')) {
-            let isSuffixedRule = false;
-            for (let bp = 0; bp < breakpoints.length; bp++) {
-                let suffix = breakpoints[bp].suffix;
-                // get classname and ignore pseudo part
-                const { className } = chopPseudo(rule.selector);
-                if (className.endsWith(suffix)) {
-                    isSuffixedRule = true;
-                    // update/add rule to rules for current suffix
-                    let suffixRules = breakpointRules.get(suffix);
-                    suffixRules.push(rule.clone());
-                    breakpointRules.set(suffix, suffixRules);
-                    // stop iterating, can only be one suffix per rule
-                    break;
+            // Check if previous node is '!no-suffix' comment
+            const prevNode = rule.prev();
+            const hasNoSuffixComment =
+                prevNode &&
+                prevNode.type === 'comment' &&
+                prevNode.text === '!no-suffix';
+            const notIgnored = !hasNoSuffixComment;
+            if (notIgnored) {
+                let isSuffixedRule = false;
+                for (let bp = 0; bp < breakpoints.length; bp++) {
+                    let suffix = breakpoints[bp].suffix;
+                    // get classname and ignore pseudo part
+                    const { className } = chopPseudo(rule.selector);
+                    if (className.endsWith(suffix)) {
+                        isSuffixedRule = true;
+                        // update/add rule to rules for current suffix
+                        let suffixRules = breakpointRules.get(suffix);
+                        suffixRules.push(rule.clone());
+                        breakpointRules.set(suffix, suffixRules);
+                        // stop iterating, can only be one suffix per rule
+                        break;
+                    }
                 }
+                if (isSuffixedRule)
+                    rule.remove();
+                else
+                    classRules.push(rule.clone());
             }
-            if (isSuffixedRule)
-                rule.remove();
-            else
-                classRules.push(rule.clone());
         }
     });
     for (let bp = 0; bp < breakpoints.length; bp++) {
