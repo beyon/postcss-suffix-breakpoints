@@ -159,7 +159,7 @@ function processCSS(breakpoints, root) {
         newMediaRule.nodes = atMediaChildNodes;
         // add moved comments if any
         newMediaRule.walkRules( rule => {
-            const comment = movedComments(rule.source.end.line);
+            const comment = movedComments.get(rule.source.end.line);
             if (comment) {
                 rule.after(comment.clone());
             }
