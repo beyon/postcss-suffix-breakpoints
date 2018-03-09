@@ -63,6 +63,7 @@ function processCSS(breakpoints, root) {
         breakpointRules.set(breakpoints[idx].suffix, []);
     }
     let classRules = [];
+    let movedComments = new Map();
 
     // Copy class rules into either class rules to prefix (classRules)
     // collection and move already suffixed class rules into suffixRules
@@ -93,10 +94,23 @@ function processCSS(breakpoints, root) {
                         break;
                     }
                 }
-                if (isSuffixedRule)
+                if (isSuffixedRule) {
+                    const nextNode = rule.next();
+                    const isSameLineComment =
+                        nextNode &&
+                        nextNode.type === 'comment' &&
+                        nextNode.source.start.line === rule.source.end.line;
+                    if (isSameLineComment) {
+                        movedComments.set(
+                            rule.source.start.line,
+                            nextNode.clone()
+                        );
+                        nextNode.remove();
+                    }
                     rule.remove();
-                else
+                } else {
                     classRules.push(rule.clone());
+                }
             }
         }
     });
@@ -125,9 +139,11 @@ function processCSS(breakpoints, root) {
         }
         const indent = '    ';
         const newLine = '\n';
+        let newMediaRule = postcss.atRule();
         let atMediaChildNodes =
             Array.from(mediaClassRules.values())
                 .map( rule => {
+                    rule.parent = newMediaRule;
                     let multiDecl = rule.nodes.length > 1;
                     rule.raws.before = newLine + indent;
                     if (multiDecl) {
@@ -138,10 +154,16 @@ function processCSS(breakpoints, root) {
                     }
                     return rule;
                 });
-        let newMediaRule = postcss.atRule();
         newMediaRule.name = 'media';
         newMediaRule.params = breakpoints[bp].atMediaExpr;
         newMediaRule.nodes = atMediaChildNodes;
+        // add moved comments if any
+        newMediaRule.walkRules( rule => {
+            const comment = movedComments(rule.source.end.line);
+            if (comment) {
+                rule.after(comment.clone());
+            }
+        });
         root.append(newMediaRule);
         newMediaRule.raws.before = '\n\n';
         newMediaRule.raws.after = '\n';
