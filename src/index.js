@@ -2,6 +2,10 @@
 import * as postcss from 'postcss';
 
 /**
+ * typedef breakpoint
+ */
+
+/**
  * Split class name selector into class name, pseudo separator and
  * pseudo class
  * @param {string} ruleSelector class name selector string
@@ -54,9 +58,10 @@ function filterInvalidBreakpoints(breakpoints, result) {
 /**
  * Main CSS AST processing function
  * @param {any} breakpoints - suffix and @media expression from plugin options
+ * @param {any} formatting - formatting options
  * @param {postcss.Root} root - postcss AST root node
  */
-function processCSS(breakpoints, root) {
+function processCSS(breakpoints, formatting, root) {
     let breakpointRules = new Map();
     // init breakpoint_rules to hold empty arrays for all suffixes
     for (let idx = 0; idx < breakpoints.length; idx++) {
@@ -137,7 +142,7 @@ function processCSS(breakpoints, root) {
                 manualSuffixRules[r].clone()
             );
         }
-        const indent = '    ';
+        const indent = formatting.indentation;
         const newLine = '\n';
         let newMediaRule = postcss.atRule();
         let atMediaChildNodes =
@@ -172,13 +177,20 @@ function processCSS(breakpoints, root) {
 
 export default postcss.plugin(
     'postcss-suffix-breakpoints',
-    ({ breakpoints = [] } = {} ) => {
+    (
+        {
+            breakpoints = [],
+            formatting = {
+                indentation: '    '
+            }
+        } = {}
+    ) => {
         return function (root, result) {
             let hasValidBreakpoints;
             ({ hasValidBreakpoints, breakpoints } =
                     filterInvalidBreakpoints(breakpoints, result));
             if (hasValidBreakpoints) {
-                processCSS(breakpoints, root);
+                processCSS(breakpoints, formatting, root);
             } else {
                 result.warn('Nothing to do! (No valid breakpoints supplied)');
             }
