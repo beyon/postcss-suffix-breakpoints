@@ -1,6 +1,7 @@
 // paste into: http://astexplorer.net/#/np0DfVT78g/94 for interactive testing
 import * as postcss from 'postcss';
 
+const newLine = '\n';
 /**
  * typedef breakpoint
  */
@@ -55,6 +56,113 @@ function filterInvalidBreakpoints(breakpoints, result) {
     }
     return { hasValidBreakpoints, breakpoints };
 }
+
+function moveComment(rule, movedComments) {
+    const nextNode = rule.next();
+    const isSameLineComment = nextNode &&
+        nextNode.type === 'comment' &&
+        nextNode.source.start.line === rule.source.end.line;
+    if (isSameLineComment) {
+        movedComments.set(rule.source.start.line, nextNode.clone());
+        nextNode.remove();
+    }
+    rule.remove();
+}
+
+function notIgnored(node) {
+    const hasIgnoreComment = node &&
+    node.type === 'comment' &&
+    node.text === '!no-suffix';
+    return !hasIgnoreComment;
+}
+
+function addToCurrentSuffix(alreadSuffixedRules, suffix, rule) {
+    let suffixRules = alreadSuffixedRules.get(suffix);
+    suffixRules.push(rule.clone());
+    alreadSuffixedRules.set(suffix, suffixRules);
+}
+
+/**
+ * Copy class rules into either class rules to prefix (classRules)
+ * collection and move already suffixed class rules into suffixRules
+ * @param {*} breakpoints
+ * @param {*} alreadSuffixedRules
+ * @param {*} movedComments
+ * @param {*} classRules
+ */
+function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
+    return rule => {
+        // Only work on individual class selectors
+        // (for now, see issue #1)
+        if (rule.selector.startsWith('.')) {
+            // Check if previous node is '!no-suffix' comment
+            if (notIgnored(rule.prev())) {
+                let isSuffixedRule = false;
+                for ( let breakpoint of breakpoints) {
+                    // get classname and ignore pseudo part
+                    const { className } = chopPseudo(rule.selector);
+                    if (className.endsWith(breakpoint.suffix)) {
+                        isSuffixedRule = true;
+                        addToCurrentSuffix(
+                            alreadSuffixedRules, breakpoint.suffix, rule);
+                        break; // can only be one suffix per rule
+                    }
+                }
+                if (isSuffixedRule) {
+                    moveComment(rule, movedComments);
+                } else {
+                    classRules.push(rule.clone());
+                }
+            }
+        }
+    };
+}
+
+function createNewMediaRule(
+    mediaClassRules,
+    indent,
+    breakpoint,
+    movedComments
+) {
+    let newMediaRule = postcss.atRule();
+    let atMediaChildNodes = Array.from(mediaClassRules.values())
+        .map(rule => {
+            rule.parent = newMediaRule;
+            let multiDecl = rule.nodes.length > 1;
+            rule.raws.before = newLine + indent;
+            if (multiDecl) {
+                rule.nodes.map(child => {
+                    child.raws.before = newLine + indent + indent;
+                });
+                rule.raws.after = newLine + indent;
+            }
+            return rule;
+        });
+    newMediaRule.name = 'media';
+    newMediaRule.params = breakpoint.atMediaExpr;
+    newMediaRule.nodes = atMediaChildNodes;
+    // add moved comments if any
+    newMediaRule.walkRules(rule => {
+        const comment = movedComments.get(rule.source.end.line);
+        if (comment) {
+            rule.after(comment.clone());
+        }
+    });
+    return newMediaRule;
+}
+
+function cloneAndSuffix(rule, suffix, cloneTarget) {
+    const selector = rule.selector;
+    const { className } = chopPseudo(selector);
+    const nameWithSuffix = className + suffix;
+    // update selector with suffixed className while keeping pseudo part
+    const updatedSelector = selector.replace(className, nameWithSuffix);
+    cloneTarget.set(
+        updatedSelector,
+        rule.clone({ selector: updatedSelector })
+    );
+}
+
 /**
  * Main CSS AST processing function
  * @param {any} breakpoints - suffix and @media expression from plugin options
@@ -62,117 +170,42 @@ function filterInvalidBreakpoints(breakpoints, result) {
  * @param {postcss.Root} root - postcss AST root node
  */
 function processCSS(breakpoints, formatting, root) {
-    let breakpointRules = new Map();
-    // init breakpoint_rules to hold empty arrays for all suffixes
-    for (let idx = 0; idx < breakpoints.length; idx++) {
-        breakpointRules.set(breakpoints[idx].suffix, []);
-    }
-    let classRules = [];
+    let alreadySuffixedRules = new Map();
     let movedComments = new Map();
-
-    // Copy class rules into either class rules to prefix (classRules)
-    // collection and move already suffixed class rules into suffixRules
-    root.walkRules(rule => {
-        // Only work on individual class selectors
-        // (for now, see issue #1)
-        if (rule.selector.startsWith('.')) {
-            // Check if previous node is '!no-suffix' comment
-            const prevNode = rule.prev();
-            const hasIgnoreComment =
-                prevNode &&
-                prevNode.type === 'comment' &&
-                prevNode.text === '!no-suffix';
-            const notIgnored = !hasIgnoreComment;
-            if (notIgnored) {
-                let isSuffixedRule = false;
-                for (let bp = 0; bp < breakpoints.length; bp++) {
-                    let suffix = breakpoints[bp].suffix;
-                    // get classname and ignore pseudo part
-                    const { className } = chopPseudo(rule.selector);
-                    if (className.endsWith(suffix)) {
-                        isSuffixedRule = true;
-                        // update/add rule to rules for current suffix
-                        let suffixRules = breakpointRules.get(suffix);
-                        suffixRules.push(rule.clone());
-                        breakpointRules.set(suffix, suffixRules);
-                        // stop iterating, can only be one suffix per rule
-                        break;
-                    }
-                }
-                if (isSuffixedRule) {
-                    const nextNode = rule.next();
-                    const isSameLineComment =
-                        nextNode &&
-                        nextNode.type === 'comment' &&
-                        nextNode.source.start.line === rule.source.end.line;
-                    if (isSameLineComment) {
-                        movedComments.set(
-                            rule.source.start.line,
-                            nextNode.clone()
-                        );
-                        nextNode.remove();
-                    }
-                    rule.remove();
-                } else {
-                    classRules.push(rule.clone());
-                }
-            }
-        }
-    });
-    for (let bp = 0; bp < breakpoints.length; bp++) {
-        let mediaClassRules = new Map();
-        let suffix = breakpoints[bp].suffix;
-        // copy class rules for all non suffixed rules and add suffix to
-        // selector for current breakpoint
-        for (let idx = 0; idx < classRules.length; idx++) {
-            const selector = classRules[idx].selector;
-            const { className } = chopPseudo(selector);
-            const nameWithSuffix = className + suffix;
-            const updatedSelector = selector.replace(className, nameWithSuffix);
-            mediaClassRules.set(
-                updatedSelector,
-                classRules[idx].clone({ selector: updatedSelector })
-            );
-        }
-        // override suffixed rules with manually added ones
-        let manualSuffixRules = breakpointRules.get(suffix);
-        for (let r = 0; r < manualSuffixRules.length; r++) {
-            mediaClassRules.set(
-                manualSuffixRules[r].selector,
-                manualSuffixRules[r].clone()
-            );
-        }
-        const indent = formatting.indentation;
-        const newLine = '\n';
-        let newMediaRule = postcss.atRule();
-        let atMediaChildNodes =
-            Array.from(mediaClassRules.values())
-                .map( rule => {
-                    rule.parent = newMediaRule;
-                    let multiDecl = rule.nodes.length > 1;
-                    rule.raws.before = newLine + indent;
-                    if (multiDecl) {
-                        rule.nodes.map( child => {
-                            child.raws.before = newLine + indent + indent;
-                        });
-                        rule.raws.after = newLine + indent;
-                    }
-                    return rule;
-                });
-        newMediaRule.name = 'media';
-        newMediaRule.params = breakpoints[bp].atMediaExpr;
-        newMediaRule.nodes = atMediaChildNodes;
-        // add moved comments if any
-        newMediaRule.walkRules( rule => {
-            const comment = movedComments.get(rule.source.end.line);
-            if (comment) {
-                rule.after(comment.clone());
-            }
-        });
-        root.append(newMediaRule);
-        newMediaRule.raws.before = '\n\n';
-        newMediaRule.raws.after = '\n';
+    let classRules = [];
+    // init alreadySuffixedRules to hold empty arrays for all suffixes
+    for (let idx = 0; idx < breakpoints.length; idx++) {
+        alreadySuffixedRules.set(breakpoints[idx].suffix, []);
     }
+
+    root.walkRules(
+        ruleJob(breakpoints, alreadySuffixedRules, movedComments, classRules));
+
+    breakpoints.forEach( breakpoint => {
+        let mediaClassRules = new Map();
+
+        classRules.forEach( rule => {
+            cloneAndSuffix(rule, breakpoint.suffix, mediaClassRules);
+        });
+        // override suffixed rules with manually added ones
+        alreadySuffixedRules
+            .get(breakpoint.suffix)
+            .forEach(rule => {
+                mediaClassRules.set(rule.selector, rule.clone());
+            });
+
+        let newMediaRule = createNewMediaRule(
+            mediaClassRules,
+            formatting.indentation,
+            breakpoint,
+            movedComments);
+
+        root.append(newMediaRule);
+        // Setting raws only work after appending since append() seem to
+        // set the fields to ''
+        newMediaRule.raws.before = newLine + newLine;
+        newMediaRule.raws.after = newLine;
+    });
 }
 
 export default postcss.plugin(
