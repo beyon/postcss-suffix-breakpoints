@@ -2,6 +2,7 @@
 import * as postcss from 'postcss';
 
 const newLine = '\n';
+
 /**
  * typedef breakpoint
  */
@@ -28,7 +29,13 @@ function chopPseudo(ruleSelector) {
     return { className, pSeparator, pseudo };
 }
 
-function filterInvalidBreakpoints(breakpoints, result) {
+/**
+ * Checks that there are at least one valid breakpoint and
+ * filters out invalid ones.
+ * @param {*} breakpoints
+ * @param {*} result
+ */
+function checkAndFilterBreakpoints(breakpoints, result) {
     let hasValidBreakpoints = false;
     if (Array.isArray(breakpoints) && breakpoints.length > 0) {
         breakpoints = breakpoints.filter((breakpoint, bpIdx) => {
@@ -57,6 +64,12 @@ function filterInvalidBreakpoints(breakpoints, result) {
     return { hasValidBreakpoints, breakpoints };
 }
 
+/**
+ * Extracts comments at the end of same line to comments to be moved
+ * collection.
+ * @param {*} rule
+ * @param {*} movedComments
+ */
 function moveComment(rule, movedComments) {
     const nextNode = rule.next();
     const isSameLineComment = nextNode &&
@@ -69,6 +82,11 @@ function moveComment(rule, movedComments) {
     rule.remove();
 }
 
+/**
+ * Checks that the given rule is not ignored by '!no-suffix'
+ * comment
+ * @param { postcss.Node } node
+ */
 function notIgnored(node) {
     const hasIgnoreComment = node &&
     node.type === 'comment' &&
@@ -76,10 +94,28 @@ function notIgnored(node) {
     return !hasIgnoreComment;
 }
 
+/**
+ * Add rule to already suffixed rules for given suffix (breakpoint)
+ * @param {*} alreadSuffixedRules
+ * @param { String } suffix
+ * @param { postcss.rule } rule
+ */
 function addToCurrentSuffix(alreadSuffixedRules, suffix, rule) {
     let suffixRules = alreadSuffixedRules.get(suffix);
     suffixRules.push(rule.clone());
     alreadSuffixedRules.set(suffix, suffixRules);
+}
+
+function removeAlreadySuffixed(selector, alreadySuffixedRules, breakpoints) {
+    for ( let breakpoint of breakpoints) {
+        let suffixRules = alreadySuffixedRules.get(breakpoint.suffix);
+        let filtered = suffixRules.filter( suffixedRule => {
+            const nonSuffixedSelector =
+                suffixedRule.selector.replace(breakpoint.suffix, '');
+            return nonSuffixedSelector !== selector;
+        });
+        alreadySuffixedRules.set(breakpoint.suffix, filtered);
+    }
 }
 
 /**
@@ -112,12 +148,21 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
                     moveComment(rule, movedComments);
                 } else {
                     classRules.push(rule.clone());
+                    // If rule overrides manually suffixed rules remove them
+                    removeAlreadySuffixed(
+                        rule.selector, alreadSuffixedRules, breakpoints);
                 }
             }
         }
     };
 }
-
+/**
+ * Creates new @media rule
+ * @param {*} mediaClassRules
+ * @param {*} indent
+ * @param {*} breakpoint
+ * @param {*} movedComments
+ */
 function createNewMediaRule(
     mediaClassRules,
     indent,
@@ -151,6 +196,12 @@ function createNewMediaRule(
     return newMediaRule;
 }
 
+/**
+ * Clone rule into cloneTarget with class name suffixed
+ * @param {*} rule
+ * @param {*} suffix
+ * @param {*} cloneTarget
+ */
 function cloneAndSuffix(rule, suffix, cloneTarget) {
     const selector = rule.selector;
     const { className } = chopPseudo(selector);
@@ -193,18 +244,20 @@ function processCSS(breakpoints, formatting, root) {
             .forEach(rule => {
                 mediaClassRules.set(rule.selector, rule.clone());
             });
+        if (mediaClassRules.size >= 1) {
+            let newMediaRule = createNewMediaRule(
+                mediaClassRules,
+                formatting.indentation,
+                breakpoint,
+                movedComments);
 
-        let newMediaRule = createNewMediaRule(
-            mediaClassRules,
-            formatting.indentation,
-            breakpoint,
-            movedComments);
+            root.append(newMediaRule);
+            // Setting raws only work after appending since append() seem to
+            // set the fields to ''
+            newMediaRule.raws.before = newLine + newLine;
+            newMediaRule.raws.after = newLine;
 
-        root.append(newMediaRule);
-        // Setting raws only work after appending since append() seem to
-        // set the fields to ''
-        newMediaRule.raws.before = newLine + newLine;
-        newMediaRule.raws.after = newLine;
+        }
     });
 }
 
@@ -221,7 +274,7 @@ export default postcss.plugin(
         return function (root, result) {
             let hasValidBreakpoints;
             ({ hasValidBreakpoints, breakpoints } =
-                    filterInvalidBreakpoints(breakpoints, result));
+                    checkAndFilterBreakpoints(breakpoints, result));
             if (hasValidBreakpoints) {
                 processCSS(breakpoints, formatting, root);
             } else {
