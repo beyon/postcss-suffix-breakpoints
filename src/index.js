@@ -79,7 +79,6 @@ function moveComment(rule, movedComments) {
         movedComments.set(rule.source.start.line, nextNode.clone());
         nextNode.remove();
     }
-    rule.remove();
 }
 
 /**
@@ -128,30 +127,50 @@ function removeAlreadySuffixed(selector, alreadySuffixedRules, breakpoints) {
  */
 function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
     return rule => {
-        // Only work on individual class selectors
-        // (for now, see issue #1)
-        if (rule.selector.startsWith('.')) {
-            // Check if previous node is '!no-suffix' comment
-            if (notIgnored(rule.prev())) {
+        // Check if previous node is '!no-suffix' comment
+        if (notIgnored(rule.prev())) {
+            const ruleSelectors = rule.selectors;
+            const classSelectors = ruleSelectors.filter( selector => {
+                return selector.startsWith('.');
+            });
+            let nonSuffixedSelectors = ruleSelectors.filter( selector => {
+                let suffixed = false;
+              	for ( let breakpoint of breakpoints) {
+                    const { className } = chopPseudo(selector);
+                    if (className.endsWith(breakpoint.suffix)) {
+                        suffixed = true;
+                        break;
+                    }
+                }
+                return !suffixed;
+            });
+            classSelectors.forEach( selector => {
+                let tmpRule = rule.clone();
+                tmpRule.selector = selector;
                 let isSuffixedRule = false;
                 for ( let breakpoint of breakpoints) {
                     // get classname and ignore pseudo part
-                    const { className } = chopPseudo(rule.selector);
+                    const { className } = chopPseudo(tmpRule.selector);
                     if (className.endsWith(breakpoint.suffix)) {
                         isSuffixedRule = true;
                         addToCurrentSuffix(
-                            alreadSuffixedRules, breakpoint.suffix, rule);
+                            alreadSuffixedRules, breakpoint.suffix, tmpRule);
                         break; // can only be one suffix per rule
                     }
                 }
                 if (isSuffixedRule) {
                     moveComment(rule, movedComments);
                 } else {
-                    classRules.push(rule.clone());
+                    classRules.push(tmpRule.clone());
                     // If rule overrides manually suffixed rules remove them
                     removeAlreadySuffixed(
-                        rule.selector, alreadSuffixedRules, breakpoints);
+                        tmpRule.selector, alreadSuffixedRules, breakpoints);
                 }
+            });
+            if (nonSuffixedSelectors && nonSuffixedSelectors.length === 0) {
+                rule.remove();
+            } else {
+                rule.selector = nonSuffixedSelectors.join();
             }
         }
     };
