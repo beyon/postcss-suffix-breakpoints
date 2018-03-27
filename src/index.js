@@ -87,9 +87,10 @@ function moveComment(rule, movedComments) {
  * @param { postcss.Node } node
  */
 function notIgnored(node) {
-    const hasIgnoreComment = node &&
-    node.type === 'comment' &&
-    node.text === '!no-suffix';
+    const hasIgnoreComment =
+        node &&
+        node.type === 'comment' &&
+        node.text === '!no-suffix';
     return !hasIgnoreComment;
 }
 
@@ -161,6 +162,7 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
                 if (isSuffixedRule) {
                     moveComment(rule, movedComments);
                 } else {
+                    moveComment(rule, movedComments);
                     classRules.push(tmpRule.clone());
                     // If rule overrides manually suffixed rules remove them
                     removeAlreadySuffixed(
@@ -175,6 +177,20 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
         }
     };
 }
+
+function sourceOfFirstRule(rules) {
+    let reduced = rules.reduce( (x, rule) => {
+        if ( rule.source.start.line < x.min ) {
+            x.indexOfFirst = x.currentIndex;
+            x.min = rule.source.start.line;
+        }
+      	x.currentIndex += 1;
+      	return x;
+    }, { currentIndex: 0, indexOfFirst: 0, min: Number.MAX_SAFE_INTEGER }
+    );
+    return rules[reduced.indexOfFirst].source;
+}
+
 /**
  * Creates new @media rule
  * @param {*} mediaClassRules
@@ -192,9 +208,9 @@ function createNewMediaRule(
     let atMediaChildNodes = Array.from(mediaClassRules.values())
         .map(rule => {
             rule.parent = newMediaRule;
-            let multiDecl = rule.nodes.length > 1;
+            let multiLine = rule.source.start.line < rule.source.end.line;
             rule.raws.before = newLine + indent;
-            if (multiDecl) {
+            if (multiLine) {
                 rule.nodes.map(child => {
                     child.raws.before = newLine + indent + indent;
                 });
@@ -205,6 +221,7 @@ function createNewMediaRule(
     newMediaRule.name = 'media';
     newMediaRule.params = breakpoint.atMediaExpr;
     newMediaRule.nodes = atMediaChildNodes;
+    newMediaRule.source = sourceOfFirstRule(atMediaChildNodes);
     // add moved comments if any
     newMediaRule.walkRules(rule => {
         const comment = movedComments.get(rule.source.end.line);
