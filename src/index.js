@@ -1,11 +1,13 @@
 // paste into: http://astexplorer.net/#/np0DfVT78g/94 for interactive testing
 import * as postcss from 'postcss';
 
-const newLine = '\n';
-
 /**
- * typedef breakpoint
+ * @typedef {object} Breakpoint
+ * @property {string} suffix - The suffixed used by the breakpoint
+ * @property {string} atMediaExpr - The expression to insert after @media
  */
+
+const newLine = '\n';
 
 /**
  * Split class name selector into class name, pseudo separator and
@@ -32,8 +34,9 @@ function chopPseudo(ruleSelector) {
 /**
  * Checks that there are at least one valid breakpoint and
  * filters out invalid ones.
- * @param {*} breakpoints
- * @param {*} result
+ * @param {Breakpoint[]} breakpoints
+ * @param {postcss.Result} result
+ * @returns {{hasValidBreakpoints: boolean, breakpoints: Breakpoint[]}}
  */
 function checkAndFilterBreakpoints(breakpoints, result) {
     let hasValidBreakpoints = false;
@@ -67,8 +70,10 @@ function checkAndFilterBreakpoints(breakpoints, result) {
 /**
  * Extracts comments at the end of same line to comments to be moved
  * collection.
- * @param {*} rule
- * @param {*} movedComments
+ *
+ * Impure - Mutates movedComments
+ * @param {postcss.Rule} rule
+ * @param {Map<number, postcss.Rule>} movedComments
  */
 function moveComment(rule, movedComments) {
     const nextNode = rule.next();
@@ -96,7 +101,7 @@ function notIgnored(node) {
 
 /**
  * Add rule to already suffixed rules for given suffix (breakpoint)
- * @param {*} alreadSuffixedRules
+ * @param {Map<string, postcss.Rule[]} alreadSuffixedRules
  * @param { String } suffix
  * @param { postcss.rule } rule
  */
@@ -106,6 +111,12 @@ function addToCurrentSuffix(alreadSuffixedRules, suffix, rule) {
     alreadSuffixedRules.set(suffix, suffixRules);
 }
 
+/**
+ * Remove already suffixed rules
+ * @param {string} selector Rule selector
+ * @param {Map<string, postcss.Rule[]} alreadySuffixedRules
+ * @param {Breakpoint[]} breakpoints
+ */
 function removeAlreadySuffixed(selector, alreadySuffixedRules, breakpoints) {
     for ( let breakpoint of breakpoints) {
         let suffixRules = alreadySuffixedRules.get(breakpoint.suffix);
@@ -121,10 +132,11 @@ function removeAlreadySuffixed(selector, alreadySuffixedRules, breakpoints) {
 /**
  * Copy class rules into either class rules to prefix (classRules)
  * collection and move already suffixed class rules into suffixRules
- * @param {*} breakpoints
- * @param {*} alreadSuffixedRules
- * @param {*} movedComments
- * @param {*} classRules
+ * @param {Breakpoint[]} breakpoints
+ * @param {Map<string, postcss.Rule[]} alreadSuffixedRules
+ * @param {Map<number, postcss.Rule>} movedComments
+ * @param {postcss.Rule[]} classRules
+ * @return {function(postcss.Rule)}
  */
 function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
     return rule => {
@@ -177,8 +189,13 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
         }
     };
 }
-
+/**
+ * Get source of the first line of source css where provided rules occur
+ * @param {postcss.Rule[]} rules - Rules
+ * @return {postcss.NodeSource} Input source of the node
+ */
 function sourceOfFirstRule(rules) {
+    /** @type {currentIndex: number, indexOfFirst: number, min: number} */
     let reduced = rules.reduce( (x, rule) => {
         if ( rule.source.start.line < x.min ) {
             x.indexOfFirst = x.currentIndex;
@@ -193,10 +210,11 @@ function sourceOfFirstRule(rules) {
 
 /**
  * Creates new @media rule
- * @param {*} mediaClassRules
- * @param {*} indent
- * @param {*} breakpoint
- * @param {*} movedComments
+ * @param {Map<string, postcss.Rule>} mediaClassRules
+ * @param {string} indent
+ * @param {Breakpoint} breakpoint
+ * @param {Map<number, postcss.Rule>} movedComments
+ * @return {postcss.AtRule}
  */
 function createNewMediaRule(
     mediaClassRules,
@@ -234,9 +252,9 @@ function createNewMediaRule(
 
 /**
  * Clone rule into cloneTarget with class name suffixed
- * @param {*} rule
- * @param {*} suffix
- * @param {*} cloneTarget
+ * @param {postcss.Rule} rule
+ * @param {string} suffix
+ * @param {Map<string, postcss.Rule[]} cloneTarget
  */
 function cloneAndSuffix(rule, suffix, cloneTarget) {
     const selector = rule.selector;
@@ -252,23 +270,26 @@ function cloneAndSuffix(rule, suffix, cloneTarget) {
 
 /**
  * Main CSS AST processing function
- * @param {any} breakpoints - suffix and @media expression from plugin options
- * @param {any} formatting - formatting options
+ * @param {Breakpoint[]} breakpoints - Valid breakpoints to generate
+ * @param {{indentation: string}} formatting - formatting options
  * @param {postcss.Root} root - postcss AST root node
  */
 function processCSS(breakpoints, formatting, root) {
+    /** @type {Map<string, postcss.Rule[]} */
     let alreadySuffixedRules = new Map();
+    /** @type {Map<number, postcss.Rule>} */
     let movedComments = new Map();
+    /** @type {postcss.Rule[]} */
     let classRules = [];
     // init alreadySuffixedRules to hold empty arrays for all suffixes
     for (let idx = 0; idx < breakpoints.length; idx++) {
         alreadySuffixedRules.set(breakpoints[idx].suffix, []);
     }
-
     root.walkRules(
         ruleJob(breakpoints, alreadySuffixedRules, movedComments, classRules));
 
     breakpoints.forEach( breakpoint => {
+        /** @type {Map<string, postcss.Rule} */
         let mediaClassRules = new Map();
 
         classRules.forEach( rule => {
