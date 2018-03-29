@@ -74,15 +74,18 @@ function checkAndFilterBreakpoints(breakpoints, result) {
  * Impure - Mutates movedComments
  * @param {postcss.Rule} rule
  * @param {Map<number, postcss.Rule>} movedComments
+ * @param {booleab} doMove
  */
-function moveComment(rule, movedComments) {
+function copyOrMoveComment(rule, movedComments, doMove) {
     const nextNode = rule.next();
     const isSameLineComment = nextNode &&
         nextNode.type === 'comment' &&
         nextNode.source.start.line === rule.source.end.line;
     if (isSameLineComment) {
-        movedComments.set(rule.source.start.line, nextNode.clone());
-        nextNode.remove();
+        movedComments.set(rule.source.end.line, nextNode.clone());
+        if (doMove) {
+            nextNode.remove();
+        }
     }
 }
 
@@ -146,7 +149,7 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
             const classSelectors = ruleSelectors.filter( selector => {
                 return selector.startsWith('.');
             });
-            let nonSuffixedSelectors = ruleSelectors.filter( selector => {
+            const nonSuffixedSelectors = ruleSelectors.filter( selector => {
                 let suffixed = false;
               	for ( let breakpoint of breakpoints) {
                     const { className } = chopPseudo(selector);
@@ -157,6 +160,8 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
                 }
                 return !suffixed;
             });
+            const onlySuffixedSelectors =
+                nonSuffixedSelectors && nonSuffixedSelectors.length === 0;
             classSelectors.forEach( selector => {
                 let tmpRule = rule.clone();
                 tmpRule.selector = selector;
@@ -172,16 +177,17 @@ function ruleJob(breakpoints, alreadSuffixedRules, movedComments, classRules) {
                     }
                 }
                 if (isSuffixedRule) {
-                    moveComment(rule, movedComments);
+                    copyOrMoveComment(rule, movedComments,
+                        onlySuffixedSelectors);
                 } else {
-                    moveComment(rule, movedComments);
+                    copyOrMoveComment(rule, movedComments, false);
                     classRules.push(tmpRule.clone());
                     // If rule overrides manually suffixed rules remove them
                     removeAlreadySuffixed(
                         tmpRule.selector, alreadSuffixedRules, breakpoints);
                 }
             });
-            if (nonSuffixedSelectors && nonSuffixedSelectors.length === 0) {
+            if (onlySuffixedSelectors) {
                 rule.remove();
             } else {
                 rule.selector = nonSuffixedSelectors.join();
