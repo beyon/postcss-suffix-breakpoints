@@ -18,4 +18,31 @@ const tachyonsBreakpoints = {
     ]
 };
 
-export { run, tachyonsBreakpoints };
+const breakpointsX = {
+    breakpoints: [
+        { suffix: '-x', atMediaExpr: '(--breakpoint-x)' }
+    ]
+};
+
+const breakpointsXY = {
+    breakpoints: [
+        { suffix: '-x', atMediaExpr: '(--breakpoint-x)' },
+        { suffix: '-y', atMediaExpr: '(--breakpoint-y)' }
+    ]
+};
+
+const breakpointsXYZ = {
+    breakpoints: [
+        { suffix: '-x', atMediaExpr: '(--breakpoint-x)' },
+        { suffix: '-y', atMediaExpr: '(--breakpoint-y)' },
+        { suffix: '-z', atMediaExpr: '(--breakpoint-z)' }
+    ]
+};
+
+export {
+    run,
+    tachyonsBreakpoints,
+    breakpointsX,
+    breakpointsXY,
+    breakpointsXYZ
+};
