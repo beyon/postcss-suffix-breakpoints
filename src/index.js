@@ -39,8 +39,13 @@ function chopPseudo(ruleSelector) {
  * @returns {{hasValidBreakpoints: boolean, breakpoints: Breakpoint[]}}
  */
 function checkAndFilterBreakpoints(breakpoints, result) {
-    let hasValidBreakpoints = false;
-    if (Array.isArray(breakpoints) && breakpoints.length > 0) {
+    if (!Array.isArray(breakpoints)) {
+        result.warn('options.breakpoints is not an array');
+        return { hasValidBreakpoints: false, breakpoints };
+    } else if (breakpoints.length === 0) {
+        result.warn('options.breakpoints[] has zero elements');
+        return { hasValidBreakpoints: false, breakpoints: [] };
+    } else {
         breakpoints = breakpoints.filter((breakpoint, bpIdx) => {
             let validSuffix = false;
             let validAtMediaExpr = false;
@@ -62,9 +67,8 @@ function checkAndFilterBreakpoints(breakpoints, result) {
             }
             return validSuffix && validAtMediaExpr;
         });
-        hasValidBreakpoints = breakpoints.length > 0;
+        return { hasValidBreakpoints: breakpoints.length > 0, breakpoints };
     }
-    return { hasValidBreakpoints, breakpoints };
 }
 
 /**
