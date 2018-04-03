@@ -29,7 +29,8 @@
   },
   "scripts": {
     "build": "babel ./src/index.js -o index.js",
-    "test": "jest && eslint --ext .js src/ tests/"
+    "test": "jest && eslint --ext .js src/ tests/",
+    "coverage": "jest --coverage"
   },
   "babel": {
     "presets": ["env"]
